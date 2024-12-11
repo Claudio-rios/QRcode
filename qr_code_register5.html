@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Event Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        main {
+            padding: 2rem;
+        }
+        .form-section, .table-section {
+            margin-bottom: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+        .form-section h2, .table-section h2 {
+            margin-top: 0;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        form label {
+            margin-bottom: 0.5rem;
+        }
+        form input, form textarea, form button {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        form button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        table th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .actions button {
+            margin-right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border: none;
+            color: white;
+            background-color: #007BFF;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .actions button.delete {
+            background-color: #FF4B4B;
+        }
+        .completion-status {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .incomplete {
+            color: #FF4B4B;
+        }
+        #login-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f9;
+        }
+        #app {
+            display: none;
+        }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+        }
+    </style>
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>QR Code Event Tracker</h1>
+    </header>
+
+    <!-- Login Section -->
+    <div id="login-section">
+        <h2>Welcome to the Event!</h2>
+        <p>Please enter your full name to start scanning QR codes.</p>
+        <input type="text" id="user-name" placeholder="First and Last Name" required>
+        <button onclick="loginUser()">Enter</button>
+    </div>
+
+    <!-- App Section -->
+    <div id="app">
+        <main>
+            <section class="form-section">
+                <h2>Scan a QR Code</h2>
+                <div id="reader"></div>
+                <p id="scan-result" style="margin-top: 1rem; font-weight: bold; color: #4CAF50;"></p>
+            </section>
+
+            <section class="table-section">
+                <h2>My Scanned QR Codes</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>QR Code</th>
+                            <th>Description</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qr-table-body">
+                        <!-- Rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="table-section">
+                <h2>Admin: Export All Scans</h2>
+                <button onclick="exportData()">Export Data</button>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('login-section');
+        const appSection = document.getElementById('app');
+        const qrTableBody = document.getElementById('qr-table-body');
+        const scanResult = document.getElementById('scan-result');
+
+        let userName = '';
+        let qrData = [];
+
+        // Login user
+        function loginUser() {
+            const nameInput = document.getElementById('user-name');
+            userName = nameInput.value.trim();
+
+            if (userName === '') {
+                alert('Please enter your name to continue.');
+                return;
+            }
+
+            // Hide login and show app
+            loginSection.style.display = 'none';
+            appSection.style.display = 'block';
+
+            // Initialize QR Code Reader
+            initializeQrCodeReader();
+        }
+
+        function initializeQrCodeReader() {
+            const html5QrCode = new Html5Qrcode("reader");
+
+            html5QrCode.start(
+                { facingMode: "environment" }, // Use back camera
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    scanResult.textContent = `Scanned: ${decodedText}`;
+                    addScan(decodedText);
+                },
+                (errorMessage) => {
+                    // Log errors (optional)
+                }
+            ).catch((err) => {
+                console.error("Unable to start QR Code scanner", err);
+            });
+        }
+
+        function addScan(qrCode) {
+            const date = new Date().toLocaleString();
+
+            // Add the new scan to the data array
+            const newEntry = {
+                id: qrData.length + 1,
+                userName,
+                qrCode,
+                description: '',
+                date
+            };
+
+            qrData.push(newEntry);
+            updateTable();
+        }
+
+        function updateTable() {
+            qrTableBody.innerHTML = '';
+
+            const userScans = qrData.filter(entry => entry.userName === userName);
+
+            userScans.forEach((entry) => {
+                const row = document.createElement('tr');
+
+                row.innerHTML = `
+                    <td>${entry.id}</td>
+                    <td>${entry.qrCode}</td>
+                    <td>${entry.description}</td>
+                    <td>${entry.date}</td>
+                `;
+
+                qrTableBody.appendChild(row);
+            });
+        }
+
+        function exportData() {
+            const csvContent = "data:text/csv;charset=utf-8," +
+                ["ID,Name,QR Code,Description,Date"]
+                    .concat(qrData.map(entry => `${entry.id},${entry.userName},${entry.qrCode},${entry.description},${entry.date}`))
+                    .join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "qr_scans.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
